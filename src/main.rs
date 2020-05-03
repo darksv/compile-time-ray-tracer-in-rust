@@ -60,7 +60,7 @@ fn render_rt() -> Vec<u8> {
 
 
 fn main() {
-    // const PIXELS: [u8; WIDTH * HEIGHT * 3] = render_ct();
-    let PIXELS = render_rt();
+    const PIXELS: [u8; WIDTH * HEIGHT * 3] = render_ct();
+    // let PIXELS = render_rt();
     lodepng::encode24_file("out.png", &PIXELS, WIDTH, HEIGHT).unwrap();
 }
