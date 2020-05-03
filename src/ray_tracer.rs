@@ -550,7 +550,22 @@ impl RayTracer {
         norm(cam.forward + ((recenter_x * cam.right) + (recenter_y * cam.up)))
     }
 
-    pub(crate) const fn render(&self, scene: &MyScene, canvas: &mut StaticCanvas, width: i32, height: i32) {
+    pub(crate) const fn render_ct(&self, scene: &MyScene, canvas: &mut StaticCanvas, width: i32, height: i32) {
+        let mut y = 0;
+        while y < height {
+            let mut x = 0;
+            while x < width {
+                let point = self.point(width, height, x, y, scene.camera());
+                let color = self.trace_ray(&Ray::new(scene.camera().pos, point), scene, 0);
+                canvas.set_pixel(x as usize, y as usize, color);
+                x += 1;
+            }
+
+            y += 1;
+        }
+    }
+
+    pub(crate) fn render_rt(&self, scene: &MyScene, canvas: &mut DynamicCanvas, width: i32, height: i32) {
         let mut y = 0;
         while y < height {
             let mut x = 0;
@@ -586,6 +601,26 @@ impl StaticCanvas {
     }
 
     const fn set_pixel(&mut self, x: usize, y: usize, c: Color) {
+        self.buffer[(y * WIDTH + x) * 3 + 0] = (clamp(c.r, 0.0, 1.0) * 255.0) as u8;
+        self.buffer[(y * WIDTH + x) * 3 + 1] = (clamp(c.g, 0.0, 1.0) * 255.0) as u8;
+        self.buffer[(y * WIDTH + x) * 3 + 2] = (clamp(c.b, 0.0, 1.0) * 255.0) as u8;
+    }
+}
+
+pub(crate) struct DynamicCanvas {
+    buffer: Vec<u8>,
+}
+
+impl DynamicCanvas {
+    pub(crate) fn new() -> Self {
+        Self { buffer: vec![0; WIDTH * HEIGHT * 3] }
+    }
+
+    pub(crate) fn into_vec(self) -> Vec<u8> {
+        self.buffer
+    }
+
+    fn set_pixel(&mut self, x: usize, y: usize, c: Color) {
         self.buffer[(y * WIDTH + x) * 3 + 0] = (clamp(c.r, 0.0, 1.0) * 255.0) as u8;
         self.buffer[(y * WIDTH + x) * 3 + 1] = (clamp(c.g, 0.0, 1.0) * 255.0) as u8;
         self.buffer[(y * WIDTH + x) * 3 + 2] = (clamp(c.b, 0.0, 1.0) * 255.0) as u8;
