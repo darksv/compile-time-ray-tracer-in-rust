@@ -15,11 +15,10 @@ what is the current state of compile-time evaluation in Rust.
 
 Current limitations of `const fn`
 ---------------------------------
-I tried to make this implementation as close as possible to the original, though, it wasn't always feasible.
-
-C++ version uses templates to make RayTracer class generic over a scene 
+I tried to make this implementation close to the original, though, it was not always feasible.
+C++ version uses templates to make `RayTracer` class generic over a scene 
 to allow for rendering two types of scenes: statically and dynamically created. The similar applies to a canvas.
-Unfortunately, it isn't possible to use generic bounds to constraint type 
+Unfortunately, it is not possible to use generic bounds to constraint type 
 to have a `const` implementation of the trait, so I hardcoded type of scene with some code duplication 
 for run-time and compile-time versions.
 
