@@ -422,145 +422,114 @@ impl const Surface for MySurface {
     }
 }
 
-pub(crate) struct RayTracer;
-
-impl RayTracer {
-    pub(crate) const fn new() -> Self {
-        Self
-    }
-}
-
-pub(crate) struct MyScene {
-    pub(crate) things: [Thing; 3],
-    pub(crate) lights: [Light; 4],
-    pub(crate) camera: Camera,
-}
-
-impl const Scene for MyScene {
-    fn camera(&self) -> &Camera {
-        &self.camera
-    }
-
-    fn things(&self) -> &[Thing] {
-        &self.things
-    }
-
-    fn lights(&self) -> &[Light] {
-        &self.lights
-    }
-}
-
 const MAX_DEPTH: i32 = 5;
 
+const fn intersections<'scene, S: Scene>(ray: &Ray, scene: &'scene S) -> Option<Intersection<'scene>> {
+    let mut closest_dist = Real::MAX;
+    let mut closest_inter = None;
 
-impl RayTracer {
-    const fn intersections<'scene>(&self, ray: &Ray, scene: &'scene MyScene) -> Option<Intersection<'scene>> {
-        let mut closest_dist = Real::MAX;
-        let mut closest_inter = None;
+    let mut i = 0;
+    while i < scene.things().len() {
+        let thing = &scene.things()[i];
+        let inter = thing.intersect(ray, thing);
 
-        let mut i = 0;
-        while i < scene.things().len() {
-            let thing = &scene.things()[i];
-            let inter = thing.intersect(ray, thing);
-
-            if let Some(inter) = inter {
-                if inter.dist < closest_dist {
-                    closest_dist = inter.dist;
-                    closest_inter = Some(inter);
-                }
+        if let Some(inter) = inter {
+            if inter.dist < closest_dist {
+                closest_dist = inter.dist;
+                closest_inter = Some(inter);
             }
-
-            i += 1;
-        }
-        closest_inter
-    }
-
-    const fn test_ray(&self, ray: &Ray, scene: &MyScene) -> Option<Real> {
-        if let Some(isect) = self.intersections(ray, scene) {
-            Some(isect.dist)
-        } else {
-            None
-        }
-    }
-
-    const fn trace_ray(&self, ray: &Ray, scene: &MyScene, depth: i32) -> Color {
-        if let Some(ref isect) = self.intersections(ray, scene) {
-            self.shade(isect, scene, depth)
-        } else {
-            Color::background()
-        }
-    }
-
-    const fn shade(&self, isect: &Intersection, scene: &MyScene, depth: i32) -> Color {
-        let d = isect.ray.dir;
-        let pos = (isect.dist * d) + isect.ray.start;
-        let normal = isect.thing.normal(&pos);
-        let reflect_dir = d - (2.0 * (dot(normal, d) * normal));
-        let natural_color = Color::background() + self.natural_color(isect.thing, &pos, &normal, &reflect_dir, scene);
-        let reflected_color = if depth >= MAX_DEPTH {
-            Color::grey()
-        } else {
-            self.reflection_color(isect.thing, &pos, &reflect_dir, scene, depth)
-        };
-        natural_color + reflected_color
-    }
-
-    const fn reflection_color(&self, thing: &Thing, pos: &Vec3, rd: &Vec3, scene: &MyScene, depth: i32) -> Color {
-        scale(thing.surface().reflect(pos), &self.trace_ray(&Ray::new(*pos, *rd), scene, depth + 1))
-    }
-
-    const fn add_light(&self, thing: &Thing, pos: &Vec3, normal: &Vec3, rd: &Vec3, scene: &MyScene, col: &Color, light: &Light) -> Color {
-        let ldis = light.pos - *pos;
-        let livec = norm(ldis);
-        let near_isect = self.test_ray(&Ray::new(*pos, livec), scene);
-        let is_in_shadow = if let Some(near_isect) = near_isect { near_isect < mag(ldis) } else { false };
-        if is_in_shadow {
-            return *col;
         }
 
-        let illum = dot(livec, *normal);
-        let lcolor = if illum > 0.0 { scale(illum, &light.col) } else { Color::default_color() };
-        let specular = dot(livec, norm(*rd));
-        let surf = thing.surface();
-        let scolor = if specular > 0.0 { scale(pow(specular, surf.roughness()), &light.col) } else { Color::default_color() };
+        i += 1;
+    }
+    closest_inter
+}
 
-        *col + (surf.diffuse(pos) * lcolor + surf.specular(pos) * scolor)
+const fn test_ray<S: Scene>(ray: &Ray, scene: &S) -> Option<Real> {
+    if let Some(isect) = intersections(ray, scene) {
+        Some(isect.dist)
+    } else {
+        None
+    }
+}
+
+const fn trace_ray<S: Scene>(ray: &Ray, scene: &S, depth: i32) -> Color {
+    if let Some(ref isect) = intersections(ray, scene) {
+        shade(isect, scene, depth)
+    } else {
+        Color::background()
+    }
+}
+
+const fn shade<S: Scene>(isect: &Intersection, scene: &S, depth: i32) -> Color {
+    let d = isect.ray.dir;
+    let pos = (isect.dist * d) + isect.ray.start;
+    let normal = isect.thing.normal(&pos);
+    let reflect_dir = d - (2.0 * (dot(normal, d) * normal));
+    let natural_color = Color::background() + natural_color(isect.thing, &pos, &normal, &reflect_dir, scene);
+    let reflected_color = if depth >= MAX_DEPTH {
+        Color::grey()
+    } else {
+        reflection_color(isect.thing, &pos, &reflect_dir, scene, depth)
+    };
+    natural_color + reflected_color
+}
+
+const fn reflection_color<S: Scene>(thing: &Thing, pos: &Vec3, rd: &Vec3, scene: &S, depth: i32) -> Color {
+    scale(thing.surface().reflect(pos), &trace_ray(&Ray::new(*pos, *rd), scene, depth + 1))
+}
+
+const fn add_light<S: Scene>(thing: &Thing, pos: &Vec3, normal: &Vec3, rd: &Vec3, scene: &S, col: &Color, light: &Light) -> Color {
+    let ldis = light.pos - *pos;
+    let livec = norm(ldis);
+    let near_isect = test_ray(&Ray::new(*pos, livec), scene);
+    let is_in_shadow = if let Some(near_isect) = near_isect { near_isect < mag(ldis) } else { false };
+    if is_in_shadow {
+        return *col;
     }
 
-    const fn natural_color(&self, thing: &Thing, pos: &Vec3, norm: &Vec3, rd: &Vec3, scene: &MyScene) -> Color {
-        let mut col = Color::default_color();
+    let illum = dot(livec, *normal);
+    let lcolor = if illum > 0.0 { scale(illum, &light.col) } else { Color::default_color() };
+    let specular = dot(livec, norm(*rd));
+    let surf = thing.surface();
+    let scolor = if specular > 0.0 { scale(pow(specular, surf.roughness()), &light.col) } else { Color::default_color() };
 
-        let mut i = 0;
-        while i < scene.lights().len() {
-            let light = &scene.lights()[i];
-            col = self.add_light(thing, pos, norm, rd, scene, &col, light);
+    *col + (surf.diffuse(pos) * lcolor + surf.specular(pos) * scolor)
+}
 
-            i += 1;
+const fn natural_color<S: Scene>(thing: &Thing, pos: &Vec3, norm: &Vec3, rd: &Vec3, scene: &S) -> Color {
+    let mut col = Color::default_color();
+
+    let mut i = 0;
+    while i < scene.lights().len() {
+        let light = &scene.lights()[i];
+        col = add_light(thing, pos, norm, rd, scene, &col, light);
+
+        i += 1;
+    }
+    col
+}
+
+const fn point(width: i32, height: i32, x: i32, y: i32, cam: &Camera) -> Vec3 {
+    let x = x as Real;
+    let y = y as Real;
+    let width = width as Real;
+    let height = height as Real;
+    let recenter_x = (x - (width / 2.0)) / 2.0 / width;
+    let recenter_y = -(y - (height / 2.0)) / 2.0 / height;
+    norm(cam.forward + ((recenter_x * cam.right) + (recenter_y * cam.up)))
+}
+
+pub(crate) const fn render<S: Scene>(scene: &S, canvas: &mut impl Canvas) {
+    let mut y = 0;
+    while y < canvas.height() {
+        let mut x = 0;
+        while x < canvas.width() {
+            let point = point(canvas.width(), canvas.height(), x, y, scene.camera());
+            let color = trace_ray(&Ray::new(scene.camera().pos, point), scene, 0);
+            canvas.set_pixel(x as usize, y as usize, color);
+            x += 1;
         }
-        col
-    }
-
-    const fn point(&self, width: i32, height: i32, x: i32, y: i32, cam: &Camera) -> Vec3 {
-        let x = x as Real;
-        let y = y as Real;
-        let width = width as Real;
-        let height = height as Real;
-        let recenter_x = (x - (width / 2.0)) / 2.0 / width;
-        let recenter_y = -(y - (height / 2.0)) / 2.0 / height;
-        norm(cam.forward + ((recenter_x * cam.right) + (recenter_y * cam.up)))
-    }
-
-    pub(crate) const fn render(&self, scene: &MyScene, canvas: &mut impl Canvas) {
-        let mut y = 0;
-        while y < canvas.height() {
-            let mut x = 0;
-            while x < canvas.width() {
-                let point = self.point(canvas.width(), canvas.height(), x, y, scene.camera());
-                let color = self.trace_ray(&Ray::new(scene.camera().pos, point), scene, 0);
-                canvas.set_pixel(x as usize, y as usize, color);
-                x += 1;
-            }
-            y += 1;
-        }
+        y += 1;
     }
 }

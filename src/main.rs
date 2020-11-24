@@ -11,11 +11,32 @@
 #![feature(const_ptr_offset)]
 #![const_eval_limit = "10000000000"]
 
-use crate::ray_tracer::{Camera, Color, Light, MyScene, MySurface, RayTracer, Thing, Vec3};
-use crate::canvas::{DynamicCanvas, StaticCanvas};
+use crate::ray_tracer::{Camera, Color, Light, MySurface, Thing, Vec3, render};
+use crate::canvas::{DynamicCanvas, StaticCanvas, Scene};
 
 mod ray_tracer;
 mod canvas;
+
+pub(crate) struct MyScene {
+    pub(crate) things: [Thing; 3],
+    pub(crate) lights: [Light; 4],
+    pub(crate) camera: Camera,
+}
+
+impl const Scene for MyScene {
+    fn camera(&self) -> &Camera {
+        &self.camera
+    }
+
+    fn things(&self) -> &[Thing] {
+        &self.things
+    }
+
+    fn lights(&self) -> &[Light] {
+        &self.lights
+    }
+}
+
 
 
 const SCENE: MyScene = MyScene {
@@ -35,20 +56,18 @@ const SCENE: MyScene = MyScene {
 
 const fn render_ct<const WIDTH: usize, const HEIGHT: usize>() -> [u8; WIDTH * HEIGHT * 3] {
     let mut canvas = StaticCanvas::<WIDTH, HEIGHT>::new();
-    let rt = RayTracer::new();
-    rt.render(&SCENE, &mut canvas);
+    render(&SCENE, &mut canvas);
     canvas.into_array()
 }
 
 #[allow(unused)]
 fn render_rt(width: usize, height: usize) -> Vec<u8> {
     let mut canvas = DynamicCanvas::new(width, height);
-    let rt = RayTracer::new();
-    rt.render(&SCENE, &mut canvas);
+    render(&SCENE, &mut canvas);
     canvas.into_vec()
 }
 
-const SIZE: usize = 128;
+const SIZE: usize = 24;
 
 fn main() {
     // let pixels = render_rt(SIZE, SIZE);
