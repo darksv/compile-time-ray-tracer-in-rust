@@ -1,4 +1,4 @@
-use crate::{WIDTH, HEIGHT};
+use crate::canvas::{Canvas, Scene};
 
 type Real = f32;
 
@@ -28,7 +28,7 @@ const fn floor(val: Real) -> Real {
     (if val >= 0.0 { val } else { val - 1.0 }) as i64 as Real
 }
 
-const fn clamp(v: Real, min: Real, max: Real) -> Real {
+pub(crate) const fn clamp(v: Real, min: Real, max: Real) -> Real {
     if v < min {
         min
     } else if v > max {
@@ -550,79 +550,17 @@ impl RayTracer {
         norm(cam.forward + ((recenter_x * cam.right) + (recenter_y * cam.up)))
     }
 
-    pub(crate) const fn render_ct(&self, scene: &MyScene, canvas: &mut StaticCanvas, width: i32, height: i32) {
+    pub(crate) const fn render(&self, scene: &MyScene, canvas: &mut impl Canvas) {
         let mut y = 0;
-        while y < height {
+        while y < canvas.height() {
             let mut x = 0;
-            while x < width {
-                let point = self.point(width, height, x, y, scene.camera());
+            while x < canvas.width() {
+                let point = self.point(canvas.width(), canvas.height(), x, y, scene.camera());
                 let color = self.trace_ray(&Ray::new(scene.camera().pos, point), scene, 0);
                 canvas.set_pixel(x as usize, y as usize, color);
                 x += 1;
             }
-
             y += 1;
         }
-    }
-
-    pub(crate) fn render_rt(&self, scene: &MyScene, canvas: &mut DynamicCanvas, width: i32, height: i32) {
-        let mut y = 0;
-        while y < height {
-            let mut x = 0;
-            while x < width {
-                let point = self.point(width, height, x, y, scene.camera());
-                let color = self.trace_ray(&Ray::new(scene.camera().pos, point), scene, 0);
-                canvas.set_pixel(x as usize, y as usize, color);
-                x += 1;
-            }
-
-            y += 1;
-        }
-    }
-}
-
-pub(crate) trait Scene {
-    fn camera(&self) -> &Camera;
-    fn things(&self) -> &[Thing];
-    fn lights(&self) -> &[Light];
-}
-
-pub(crate) struct StaticCanvas {
-    buffer: [u8; WIDTH * HEIGHT * 3],
-}
-
-impl StaticCanvas {
-    pub(crate) const fn new() -> Self {
-        Self { buffer: [0; { WIDTH * HEIGHT * 3 }] }
-    }
-
-    pub(crate) const fn into_array(self) -> [u8; { WIDTH * HEIGHT * 3 }] {
-        self.buffer
-    }
-
-    const fn set_pixel(&mut self, x: usize, y: usize, c: Color) {
-        self.buffer[(y * WIDTH + x) * 3 + 0] = (clamp(c.r, 0.0, 1.0) * 255.0) as u8;
-        self.buffer[(y * WIDTH + x) * 3 + 1] = (clamp(c.g, 0.0, 1.0) * 255.0) as u8;
-        self.buffer[(y * WIDTH + x) * 3 + 2] = (clamp(c.b, 0.0, 1.0) * 255.0) as u8;
-    }
-}
-
-pub(crate) struct DynamicCanvas {
-    buffer: Vec<u8>,
-}
-
-impl DynamicCanvas {
-    pub(crate) fn new() -> Self {
-        Self { buffer: vec![0; WIDTH * HEIGHT * 3] }
-    }
-
-    pub(crate) fn into_vec(self) -> Vec<u8> {
-        self.buffer
-    }
-
-    fn set_pixel(&mut self, x: usize, y: usize, c: Color) {
-        self.buffer[(y * WIDTH + x) * 3 + 0] = (clamp(c.r, 0.0, 1.0) * 255.0) as u8;
-        self.buffer[(y * WIDTH + x) * 3 + 1] = (clamp(c.g, 0.0, 1.0) * 255.0) as u8;
-        self.buffer[(y * WIDTH + x) * 3 + 2] = (clamp(c.b, 0.0, 1.0) * 255.0) as u8;
     }
 }
