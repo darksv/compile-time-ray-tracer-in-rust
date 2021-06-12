@@ -41,14 +41,7 @@ impl<const WIDTH: usize, const HEIGHT: usize> StaticCanvas<WIDTH, HEIGHT> {
         let r = (clamp(c.r, 0.0, 1.0) * 255.0) as u8;
         let g = (clamp(c.g, 0.0, 1.0) * 255.0) as u8;
         let b = (clamp(c.b, 0.0, 1.0) * 255.0) as u8;
-        let buf_ptr: *mut u8 = self.buffer.as_mut_ptr().cast();
-
-        // unfortunately we can't use array indexing here
-        unsafe {
-            *buf_ptr.offset(3 * (self.width() as isize * y as isize + x as isize) + 0) = r;
-            *buf_ptr.offset(3 * (self.width() as isize * y as isize + x as isize) + 1) = g;
-            *buf_ptr.offset(3 * (self.width() as isize * y as isize + x as isize) + 2) = b;
-        }
+        self.buffer[y as usize][x as usize] = [r, g, b];
     }
 }
 
