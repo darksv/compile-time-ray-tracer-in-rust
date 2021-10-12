@@ -424,7 +424,7 @@ impl const Surface for MySurface {
 
 const MAX_DEPTH: i32 = 5;
 
-const fn intersections<'scene, S: Scene>(ray: &Ray, scene: &'scene S) -> Option<Intersection<'scene>> {
+const fn intersections<'scene, S: ~const Scene>(ray: &Ray, scene: &'scene S) -> Option<Intersection<'scene>> {
     let mut closest_dist = Real::MAX;
     let mut closest_inter = None;
 
@@ -445,7 +445,7 @@ const fn intersections<'scene, S: Scene>(ray: &Ray, scene: &'scene S) -> Option<
     closest_inter
 }
 
-const fn test_ray<S: Scene>(ray: &Ray, scene: &S) -> Option<Real> {
+const fn test_ray<S: ~const Scene>(ray: &Ray, scene: &S) -> Option<Real> {
     if let Some(isect) = intersections(ray, scene) {
         Some(isect.dist)
     } else {
@@ -453,7 +453,7 @@ const fn test_ray<S: Scene>(ray: &Ray, scene: &S) -> Option<Real> {
     }
 }
 
-const fn trace_ray<S: Scene>(ray: &Ray, scene: &S, depth: i32) -> Color {
+const fn trace_ray<S: ~const Scene>(ray: &Ray, scene: &S, depth: i32) -> Color {
     if let Some(ref isect) = intersections(ray, scene) {
         shade(isect, scene, depth)
     } else {
@@ -461,7 +461,7 @@ const fn trace_ray<S: Scene>(ray: &Ray, scene: &S, depth: i32) -> Color {
     }
 }
 
-const fn shade<S: Scene>(isect: &Intersection, scene: &S, depth: i32) -> Color {
+const fn shade<S: ~const Scene>(isect: &Intersection, scene: &S, depth: i32) -> Color {
     let d = isect.ray.dir;
     let pos = (isect.dist * d) + isect.ray.start;
     let normal = isect.thing.normal(&pos);
@@ -475,11 +475,11 @@ const fn shade<S: Scene>(isect: &Intersection, scene: &S, depth: i32) -> Color {
     natural_color + reflected_color
 }
 
-const fn reflection_color<S: Scene>(thing: &Thing, pos: &Vec3, rd: &Vec3, scene: &S, depth: i32) -> Color {
+const fn reflection_color<S: ~const Scene>(thing: &Thing, pos: &Vec3, rd: &Vec3, scene: &S, depth: i32) -> Color {
     scale(thing.surface().reflect(pos), &trace_ray(&Ray::new(*pos, *rd), scene, depth + 1))
 }
 
-const fn add_light<S: Scene>(thing: &Thing, pos: &Vec3, normal: &Vec3, rd: &Vec3, scene: &S, col: &Color, light: &Light) -> Color {
+const fn add_light<S: ~const Scene>(thing: &Thing, pos: &Vec3, normal: &Vec3, rd: &Vec3, scene: &S, col: &Color, light: &Light) -> Color {
     let ldis = light.pos - *pos;
     let livec = norm(ldis);
     let near_isect = test_ray(&Ray::new(*pos, livec), scene);
@@ -497,7 +497,7 @@ const fn add_light<S: Scene>(thing: &Thing, pos: &Vec3, normal: &Vec3, rd: &Vec3
     *col + (surf.diffuse(pos) * lcolor + surf.specular(pos) * scolor)
 }
 
-const fn natural_color<S: Scene>(thing: &Thing, pos: &Vec3, norm: &Vec3, rd: &Vec3, scene: &S) -> Color {
+const fn natural_color<S: ~const Scene>(thing: &Thing, pos: &Vec3, norm: &Vec3, rd: &Vec3, scene: &S) -> Color {
     let mut col = Color::default_color();
 
     let mut i = 0;
@@ -520,7 +520,7 @@ const fn point(width: i32, height: i32, x: i32, y: i32, cam: &Camera) -> Vec3 {
     norm(cam.forward + ((recenter_x * cam.right) + (recenter_y * cam.up)))
 }
 
-pub(crate) const fn render<S: Scene>(scene: &S, canvas: &mut impl Canvas) {
+pub(crate) const fn render<S: ~const Scene, C: ~const Canvas>(scene: &S, canvas: &mut C) {
     let mut y = 0;
     while y < canvas.height() {
         let mut x = 0;
