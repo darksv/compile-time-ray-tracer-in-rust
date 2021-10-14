@@ -6,23 +6,24 @@
 #![feature(const_ptr_offset)]
 #![feature(const_raw_ptr_deref)]
 #![feature(const_trait_impl)]
+#![feature(generic_associated_types)]
 #![feature(generic_const_exprs)]
 #![feature(inline_const)]
 #![const_eval_limit = "0"]
 
 use crate::ray_tracer::{Camera, Color, Light, MySurface, Thing, Vec3, render};
-use crate::canvas::{DynamicCanvas, StaticCanvas, Scene};
+use crate::canvas::{DynamicCanvas, StaticCanvas, Scene, Canvas};
 
 mod ray_tracer;
 mod canvas;
 
-pub(crate) struct MyScene<const THINGS: usize, const LIGHTS: usize> {
-    pub(crate) things: [Thing; THINGS],
-    pub(crate) lights: [Light; LIGHTS],
+pub(crate) struct MyScene {
+    pub(crate) things: [Thing; 3],
+    pub(crate) lights: [Light; 4],
     pub(crate) camera: Camera,
 }
 
-impl<const N: usize, const M: usize> const Scene for MyScene<N, M> {
+impl const Scene for MyScene {
     fn camera(&self) -> &Camera {
         &self.camera
     }
@@ -36,7 +37,7 @@ impl<const N: usize, const M: usize> const Scene for MyScene<N, M> {
     }
 }
 
-const SCENE: MyScene<3, 4> = MyScene {
+const SCENE: MyScene = MyScene {
     camera: Camera::new(Vec3::new(3.0, 2.0, 4.0), Vec3::new(-1.0, 0.5, 0.0)),
     things: [
         Thing::plane(Vec3::new(0.0, 1.0, 0.0), 0.0, MySurface::Checkerboard),
@@ -51,22 +52,22 @@ const SCENE: MyScene<3, 4> = MyScene {
     ],
 };
 
-const fn render_ct<const WIDTH: usize, const HEIGHT: usize>() -> [u8; WIDTH * HEIGHT * 3] {
+const fn render_ct<const WIDTH: usize, const HEIGHT: usize>() -> StaticCanvas<WIDTH, HEIGHT> where [(); WIDTH * HEIGHT * 3]: Sized {
     let mut canvas = StaticCanvas::<WIDTH, HEIGHT>::new();
     render(&SCENE, &mut canvas);
-    canvas.into_array()
+    canvas
 }
 
 #[allow(unused)]
-fn render_rt(width: usize, height: usize) -> Vec<u8> {
+fn render_rt(width: usize, height: usize) -> DynamicCanvas {
     let mut canvas = DynamicCanvas::new(width, height);
     render(&SCENE, &mut canvas);
-    canvas.into_vec()
+    canvas
 }
 
 const SIZE: usize = 24;
 
 fn main() {
     // let pixels = render_rt(SIZE, SIZE);
-    lodepng::encode24_file("out.png", & const { render_ct::<SIZE, SIZE>() }, SIZE, SIZE).unwrap();
+    lodepng::encode24_file("out.png", & const { render_ct::<SIZE, SIZE>().into_underlying() }, SIZE, SIZE).unwrap();
 }
