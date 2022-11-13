@@ -1,5 +1,6 @@
 use crate::ray_tracer::{Camera, Light, Thing, Color, clamp};
 
+#[const_trait]
 pub(crate) trait Canvas {
     type Storage;
 
@@ -10,6 +11,7 @@ pub(crate) trait Canvas {
     fn into_underlying(self) -> Self::Storage;
 }
 
+#[const_trait]
 pub(crate) trait Scene {
     fn camera(&self) -> &Camera;
     fn things(&self) -> &[Thing];

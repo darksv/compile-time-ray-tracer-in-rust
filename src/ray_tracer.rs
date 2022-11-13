@@ -228,6 +228,7 @@ impl Light {
     }
 }
 
+#[const_trait]
 trait Hitable {
     fn intersect<'scene>(&'scene self, ray: &Ray, thing: &'scene Thing) -> Option<Intersection<'scene>>;
     fn normal(&self, pos: &Vec3) -> Vec3;
@@ -345,6 +346,7 @@ impl const Hitable for Thing {
     }
 }
 
+#[const_trait]
 trait Surface {
     fn diffuse(&self, pos: &Vec3) -> Color;
     fn specular(&self, pos: &Vec3) -> Color;
