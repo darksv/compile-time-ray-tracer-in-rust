@@ -50,16 +50,12 @@ impl<const WIDTH: usize, const HEIGHT: usize> const Canvas for StaticCanvas<WIDT
 
     fn into_underlying(self) -> Self::Storage {
         let mut pixels = [0u8; WIDTH * HEIGHT * 3];
-        let mut y = 0;
-        while y < HEIGHT {
-            let mut x = 0;
-            while x < WIDTH {
+        for y in 0..HEIGHT {
+            for x in 0..WIDTH {
                 pixels[3 * (y * WIDTH + x) + 0] = self.buffer[y][x][0];
                 pixels[3 * (y * WIDTH + x) + 1] = self.buffer[y][x][1];
                 pixels[3 * (y * WIDTH + x) + 2] = self.buffer[y][x][2];
-                x += 1;
             }
-            y += 1;
         }
         pixels
     }

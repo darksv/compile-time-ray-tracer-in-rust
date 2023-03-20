@@ -430,8 +430,7 @@ const fn intersections<'scene, S: ~const Scene>(ray: &Ray, scene: &'scene S) -> 
     let mut closest_dist = Real::MAX;
     let mut closest_inter = None;
 
-    let mut i = 0;
-    while i < scene.things().len() {
+    for i in 0..scene.things().len() {
         let thing = &scene.things()[i];
         let inter = thing.intersect(ray, thing);
 
@@ -441,8 +440,6 @@ const fn intersections<'scene, S: ~const Scene>(ray: &Ray, scene: &'scene S) -> 
                 closest_inter = Some(inter);
             }
         }
-
-        i += 1;
     }
     closest_inter
 }
@@ -502,12 +499,9 @@ const fn add_light<S: ~const Scene>(thing: &Thing, pos: &Vec3, normal: &Vec3, rd
 const fn natural_color<S: ~const Scene>(thing: &Thing, pos: &Vec3, norm: &Vec3, rd: &Vec3, scene: &S) -> Color {
     let mut col = Color::default_color();
 
-    let mut i = 0;
-    while i < scene.lights().len() {
+    for i in 0..scene.lights().len() {
         let light = &scene.lights()[i];
         col = add_light(thing, pos, norm, rd, scene, &col, light);
-
-        i += 1;
     }
     col
 }
@@ -523,15 +517,11 @@ const fn point(width: i32, height: i32, x: i32, y: i32, cam: &Camera) -> Vec3 {
 }
 
 pub(crate) const fn render<S: ~const Scene, C: ~const Canvas>(scene: &S, canvas: &mut C) {
-    let mut y = 0;
-    while y < canvas.height() {
-        let mut x = 0;
-        while x < canvas.width() {
+    for y in 0..canvas.height() {
+        for x in 0..canvas.width() {
             let point = point(canvas.width(), canvas.height(), x, y, scene.camera());
             let color = trace_ray(&Ray::new(scene.camera().pos, point), scene, 0);
             canvas.set_pixel(x as usize, y as usize, color);
-            x += 1;
         }
-        y += 1;
     }
 }
