@@ -1,4 +1,4 @@
-use crate::{WIDTH, HEIGHT};
+use crate::{HEIGHT, WIDTH};
 
 type Real = f32;
 
@@ -28,16 +28,6 @@ const fn floor(val: Real) -> Real {
     (if val >= 0.0 { val } else { val - 1.0 }) as i64 as Real
 }
 
-const fn clamp(v: Real, min: Real, max: Real) -> Real {
-    if v < min {
-        min
-    } else if v > max {
-        max
-    } else {
-        v
-    }
-}
-
 #[derive(Clone, Copy)]
 pub(crate) struct Vec3 {
     pub(crate) x: Real,
@@ -52,10 +42,10 @@ impl Vec3 {
 }
 
 const fn norm(v: Vec3) -> Vec3 {
-    1.0 / mag(v) * (v)
+    (1.0 / mag(v)).mul(v)
 }
 
-impl const std::ops::Add<Vec3> for Vec3 {
+impl const core::ops::Add<Vec3> for Vec3 {
     type Output = Vec3;
 
     fn add(self, rhs: Vec3) -> Self::Output {
@@ -67,7 +57,15 @@ impl const std::ops::Add<Vec3> for Vec3 {
     }
 }
 
-impl const std::ops::Sub<Vec3> for Vec3 {
+#[const_trait]
+trait ConstSub<Rhs = Self> {
+    type Output;
+
+    #[must_use = "this returns the result of the operation, without modifying the original"]
+    fn sub(self, rhs: Rhs) -> Self::Output;
+}
+
+impl const ConstSub<Vec3> for Vec3 {
     type Output = Vec3;
 
     fn sub(self, rhs: Vec3) -> Self::Output {
@@ -79,7 +77,15 @@ impl const std::ops::Sub<Vec3> for Vec3 {
     }
 }
 
-impl const std::ops::Mul<Vec3> for Real {
+#[const_trait]
+trait ConstMul<Rhs = Self> {
+    type Output;
+
+    #[must_use = "this returns the result of the operation, without modifying the original"]
+    fn mul(self, rhs: Rhs) -> Self::Output;
+}
+
+impl const ConstMul<Vec3> for Real {
     type Output = Vec3;
 
     fn mul(self, rhs: Vec3) -> Self::Output {
@@ -91,7 +97,6 @@ impl const std::ops::Mul<Vec3> for Real {
     }
 }
 
-
 const fn dot(v1: Vec3, v2: Vec3) -> Real {
     v1.x * v2.x + v1.y * v2.y + v1.z * v2.z
 }
@@ -99,7 +104,6 @@ const fn dot(v1: Vec3, v2: Vec3) -> Real {
 const fn mag(v: Vec3) -> Real {
     sqrt(dot(v, v))
 }
-
 
 const fn cross(v1: Vec3, v2: Vec3) -> Vec3 {
     Vec3 {
@@ -109,8 +113,7 @@ const fn cross(v1: Vec3, v2: Vec3) -> Vec3 {
     }
 }
 
-#[derive(Clone, Copy)]
-#[derive(Debug)]
+#[derive(Clone, Copy, Debug)]
 pub(crate) struct Color {
     pub(crate) r: Real,
     pub(crate) g: Real,
@@ -123,8 +126,7 @@ impl Color {
     }
 }
 
-
-impl const std::ops::Add<Color> for Color {
+impl const core::ops::Add<Color> for Color {
     type Output = Color;
 
     fn add(self, rhs: Color) -> Self::Output {
@@ -136,7 +138,7 @@ impl const std::ops::Add<Color> for Color {
     }
 }
 
-impl const std::ops::Mul<Color> for Color {
+impl const ConstMul<Color> for Color {
     type Output = Color;
 
     fn mul(self, rhs: Color) -> Self::Output {
@@ -195,13 +197,22 @@ pub(crate) struct Camera {
 
 impl Camera {
     pub(crate) const fn new(pos: Vec3, look_at: Vec3) -> Self {
-        let forward = norm(look_at - pos);
-        let right = 1.5 * norm(cross(
+        let forward = norm(look_at.sub(pos));
+        let right = 1.5.mul(norm(cross(
             forward,
-            Vec3 { x: 0.0, y: -1.0, z: 0.0 },
-        ));
-        let up = 1.5 * norm(cross(forward, right));
-        Camera { pos, forward, right, up }
+            Vec3 {
+                x: 0.0,
+                y: -1.0,
+                z: 0.0,
+            },
+        )));
+        let up = 1.5.mul(norm(cross(forward, right)));
+        Camera {
+            pos,
+            forward,
+            right,
+            up,
+        }
     }
 }
 
@@ -228,8 +239,13 @@ impl Light {
     }
 }
 
+#[const_trait]
 trait Hitable {
-    fn intersect<'scene>(&'scene self, ray: &Ray, thing: &'scene Thing) -> Option<Intersection<'scene>>;
+    fn intersect<'scene>(
+        &'scene self,
+        ray: &Ray,
+        thing: &'scene Thing,
+    ) -> Option<Intersection<'scene>>;
     fn normal(&self, pos: &Vec3) -> Vec3;
     fn surface(&self) -> &MySurface;
 }
@@ -238,7 +254,6 @@ struct Intersection<'scene> {
     ray: Ray,
     dist: Real,
     thing: &'scene Thing,
-
 }
 
 pub(crate) struct Sphere {
@@ -249,7 +264,7 @@ pub(crate) struct Sphere {
 
 impl const Hitable for Sphere {
     fn intersect<'obj>(&'obj self, ray: &Ray, thing: &'obj Thing) -> Option<Intersection<'obj>> {
-        let eo = self.centre - ray.start;
+        let eo = self.centre.sub(ray.start);
         let v = dot(eo, ray.dir);
         let mut dist = 0.0;
 
@@ -263,12 +278,16 @@ impl const Hitable for Sphere {
         if dist == 0.0 {
             None
         } else {
-            Some(Intersection { ray: *ray, dist, thing })
+            Some(Intersection {
+                ray: *ray,
+                dist,
+                thing,
+            })
         }
     }
 
     fn normal(&self, pos: &Vec3) -> Vec3 {
-        norm(*pos - self.centre)
+        norm((*pos).sub(self.centre))
     }
 
     fn surface(&self) -> &MySurface {
@@ -289,7 +308,11 @@ impl const Hitable for Plane {
             None
         } else {
             let dist = (dot(self.norm, ray.start) + self.offset) / (-denom);
-            Some(Intersection { ray: *ray, dist, thing })
+            Some(Intersection {
+                ray: *ray,
+                dist,
+                thing,
+            })
         }
     }
 
@@ -317,10 +340,13 @@ impl Thing {
     }
 
     pub(crate) const fn plane(norm: Vec3, offset: Real, surface: MySurface) -> Self {
-        Self::Plane(Plane { norm, offset, surface })
+        Self::Plane(Plane {
+            norm,
+            offset,
+            surface,
+        })
     }
 }
-
 
 impl const Hitable for Thing {
     fn intersect<'obj>(&'obj self, ray: &Ray, _thing: &'obj Thing) -> Option<Intersection<'obj>> {
@@ -345,6 +371,7 @@ impl const Hitable for Thing {
     }
 }
 
+#[const_trait]
 trait Surface {
     fn diffuse(&self, pos: &Vec3) -> Color;
     fn specular(&self, pos: &Vec3) -> Color;
@@ -364,7 +391,9 @@ impl const Surface for Shiny {
     fn reflect(&self, _pos: &Vec3) -> Real {
         0.7
     }
-    fn roughness(&self) -> i32 { 250 }
+    fn roughness(&self) -> i32 {
+        250
+    }
 }
 
 struct Checkerboard;
@@ -387,7 +416,9 @@ impl const Surface for Checkerboard {
             0.7
         }
     }
-    fn roughness(&self) -> i32 { 150 }
+    fn roughness(&self) -> i32 {
+        150
+    }
 }
 
 pub(crate) enum MySurface {
@@ -436,25 +467,28 @@ pub(crate) struct MyScene {
     pub(crate) camera: Camera,
 }
 
-impl const Scene for MyScene {
-    fn camera(&self) -> &Camera {
+impl MyScene {
+    const fn camera(&self) -> &Camera {
         &self.camera
     }
 
-    fn things(&self) -> &[Thing] {
+    const fn things(&self) -> &[Thing] {
         &self.things
     }
 
-    fn lights(&self) -> &[Light] {
+    const fn lights(&self) -> &[Light] {
         &self.lights
     }
 }
 
 const MAX_DEPTH: i32 = 5;
 
-
 impl RayTracer {
-    const fn intersections<'scene>(&self, ray: &Ray, scene: &'scene MyScene) -> Option<Intersection<'scene>> {
+    const fn intersections<'scene>(
+        &self,
+        ray: &Ray,
+        scene: &'scene MyScene,
+    ) -> Option<Intersection<'scene>> {
         let mut closest_dist = Real::MAX;
         let mut closest_inter = None;
 
@@ -493,10 +527,11 @@ impl RayTracer {
 
     const fn shade(&self, isect: &Intersection, scene: &MyScene, depth: i32) -> Color {
         let d = isect.ray.dir;
-        let pos = (isect.dist * d) + isect.ray.start;
+        let pos = (isect.dist.mul(d)) + isect.ray.start;
         let normal = isect.thing.normal(&pos);
-        let reflect_dir = d - (2.0 * (dot(normal, d) * normal));
-        let natural_color = Color::background() + self.natural_color(isect.thing, &pos, &normal, &reflect_dir, scene);
+        let reflect_dir = d.sub(2.0.mul(dot(normal, d).mul(normal)));
+        let natural_color = Color::background()
+            + self.natural_color(isect.thing, &pos, &normal, &reflect_dir, scene);
         let reflected_color = if depth >= MAX_DEPTH {
             Color::grey()
         } else {
@@ -505,29 +540,67 @@ impl RayTracer {
         natural_color + reflected_color
     }
 
-    const fn reflection_color(&self, thing: &Thing, pos: &Vec3, rd: &Vec3, scene: &MyScene, depth: i32) -> Color {
-        scale(thing.surface().reflect(pos), &self.trace_ray(&Ray::new(*pos, *rd), scene, depth + 1))
+    const fn reflection_color(
+        &self,
+        thing: &Thing,
+        pos: &Vec3,
+        rd: &Vec3,
+        scene: &MyScene,
+        depth: i32,
+    ) -> Color {
+        scale(
+            thing.surface().reflect(pos),
+            &self.trace_ray(&Ray::new(*pos, *rd), scene, depth + 1),
+        )
     }
 
-    const fn add_light(&self, thing: &Thing, pos: &Vec3, normal: &Vec3, rd: &Vec3, scene: &MyScene, col: &Color, light: &Light) -> Color {
-        let ldis = light.pos - *pos;
+    const fn add_light(
+        &self,
+        thing: &Thing,
+        pos: &Vec3,
+        normal: &Vec3,
+        rd: &Vec3,
+        scene: &MyScene,
+        col: &Color,
+        light: &Light,
+    ) -> Color {
+        let ldis = light.pos.sub(*pos);
         let livec = norm(ldis);
         let near_isect = self.test_ray(&Ray::new(*pos, livec), scene);
-        let is_in_shadow = if let Some(near_isect) = near_isect { near_isect < mag(ldis) } else { false };
+        let is_in_shadow = if let Some(near_isect) = near_isect {
+            near_isect < mag(ldis)
+        } else {
+            false
+        };
         if is_in_shadow {
             return *col;
         }
 
         let illum = dot(livec, *normal);
-        let lcolor = if illum > 0.0 { scale(illum, &light.col) } else { Color::default_color() };
+        let lcolor = if illum > 0.0 {
+            scale(illum, &light.col)
+        } else {
+            Color::default_color()
+        };
         let specular = dot(livec, norm(*rd));
         let surf = thing.surface();
-        let scolor = if specular > 0.0 { scale(pow(specular, surf.roughness()), &light.col) } else { Color::default_color() };
+        let scolor = if specular > 0.0 {
+            scale(pow(specular, surf.roughness()), &light.col)
+        } else {
+            Color::default_color()
+        };
 
-        *col + (surf.diffuse(pos) * lcolor + surf.specular(pos) * scolor)
+        *col + (surf.diffuse(pos).mul(lcolor) + surf.specular(pos).mul(scolor))
     }
 
-    const fn natural_color(&self, thing: &Thing, pos: &Vec3, norm: &Vec3, rd: &Vec3, scene: &MyScene) -> Color {
+    const fn natural_color(
+        &self,
+        thing: &Thing,
+        pos: &Vec3,
+        norm: &Vec3,
+        rd: &Vec3,
+        scene: &MyScene,
+    ) -> Color {
         let mut col = Color::default_color();
 
         let mut i = 0;
@@ -547,10 +620,16 @@ impl RayTracer {
         let height = height as Real;
         let recenter_x = (x - (width / 2.0)) / 2.0 / width;
         let recenter_y = -(y - (height / 2.0)) / 2.0 / height;
-        norm(cam.forward + ((recenter_x * cam.right) + (recenter_y * cam.up)))
+        norm(cam.forward + ((recenter_x.mul(cam.right)) + (recenter_y.mul(cam.up))))
     }
 
-    pub(crate) const fn render_ct(&self, scene: &MyScene, canvas: &mut StaticCanvas, width: i32, height: i32) {
+    pub(crate) const fn render(
+        &self,
+        scene: &MyScene,
+        canvas: &mut StaticCanvas,
+        width: i32,
+        height: i32,
+    ) {
         let mut y = 0;
         while y < height {
             let mut x = 0;
@@ -564,27 +643,6 @@ impl RayTracer {
             y += 1;
         }
     }
-
-    pub(crate) fn render_rt(&self, scene: &MyScene, canvas: &mut DynamicCanvas, width: i32, height: i32) {
-        let mut y = 0;
-        while y < height {
-            let mut x = 0;
-            while x < width {
-                let point = self.point(width, height, x, y, scene.camera());
-                let color = self.trace_ray(&Ray::new(scene.camera().pos, point), scene, 0);
-                canvas.set_pixel(x as usize, y as usize, color);
-                x += 1;
-            }
-
-            y += 1;
-        }
-    }
-}
-
-pub(crate) trait Scene {
-    fn camera(&self) -> &Camera;
-    fn things(&self) -> &[Thing];
-    fn lights(&self) -> &[Light];
 }
 
 pub(crate) struct StaticCanvas {
@@ -593,36 +651,18 @@ pub(crate) struct StaticCanvas {
 
 impl StaticCanvas {
     pub(crate) const fn new() -> Self {
-        Self { buffer: [0; { WIDTH * HEIGHT * 3 }] }
+        Self {
+            buffer: [0; { WIDTH * HEIGHT * 3 }],
+        }
     }
 
-    pub(crate) const fn into_array(self) -> [u8; { WIDTH * HEIGHT * 3 }] {
+    pub(crate) const fn into_array(self) -> [u8; WIDTH * HEIGHT * 3] {
         self.buffer
     }
 
     const fn set_pixel(&mut self, x: usize, y: usize, c: Color) {
-        self.buffer[(y * WIDTH + x) * 3 + 0] = (clamp(c.r, 0.0, 1.0) * 255.0) as u8;
-        self.buffer[(y * WIDTH + x) * 3 + 1] = (clamp(c.g, 0.0, 1.0) * 255.0) as u8;
-        self.buffer[(y * WIDTH + x) * 3 + 2] = (clamp(c.b, 0.0, 1.0) * 255.0) as u8;
-    }
-}
-
-pub(crate) struct DynamicCanvas {
-    buffer: Vec<u8>,
-}
-
-impl DynamicCanvas {
-    pub(crate) fn new() -> Self {
-        Self { buffer: vec![0; WIDTH * HEIGHT * 3] }
-    }
-
-    pub(crate) fn into_vec(self) -> Vec<u8> {
-        self.buffer
-    }
-
-    fn set_pixel(&mut self, x: usize, y: usize, c: Color) {
-        self.buffer[(y * WIDTH + x) * 3 + 0] = (clamp(c.r, 0.0, 1.0) * 255.0) as u8;
-        self.buffer[(y * WIDTH + x) * 3 + 1] = (clamp(c.g, 0.0, 1.0) * 255.0) as u8;
-        self.buffer[(y * WIDTH + x) * 3 + 2] = (clamp(c.b, 0.0, 1.0) * 255.0) as u8;
+        self.buffer[(y * WIDTH + x) * 3 + 0] = (c.r.clamp(0.0, 1.0) * 255.0) as u8;
+        self.buffer[(y * WIDTH + x) * 3 + 1] = (c.g.clamp(0.0, 1.0) * 255.0) as u8;
+        self.buffer[(y * WIDTH + x) * 3 + 2] = (c.b.clamp(0.0, 1.0) * 255.0) as u8;
     }
 }
