@@ -32,6 +32,6 @@ A simple workaround is to use `while` loop with manual indexing.
 
 Performance
 -----------
-It took almost 23 minutes to render above image at compile-time on my machine (Ryzen 7 1700). 
-Peak compiler's memory usage reached 6.6GB. For comparison the run-time version executes in 1.4s on the same machine. 
-It makes compile-time version 1000x slower. I was using `rustc 1.45.0-nightly (7f65393b9 2020-05-01)`.
+It took almost 8 minutes to render above image at compile-time on my machine (Ryzen 7 7840U).
+Peak compiler's memory usage reached 6.6GB. For comparison the run-time release version executes in 0.4s on the same machine.
+It makes compile-time version 70000x slower. I was using `rustc 1.87.0-nightly (f04bbc60f 2025-02-20)`.
