@@ -2,8 +2,8 @@ use crate::ray_tracer::{Camera, Light, Scene, Thing};
 
 
 pub(crate) struct MyScene {
-    pub(crate) things: [Thing; 3],
-    pub(crate) lights: [Light; 4],
+    pub(crate) things: &'static [Thing],
+    pub(crate) lights: &'static [Light],
     pub(crate) camera: Camera,
 }
 
