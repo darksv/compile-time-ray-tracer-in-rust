@@ -461,33 +461,20 @@ impl RayTracer {
     }
 }
 
-pub(crate) struct MyScene {
-    pub(crate) things: [Thing; 3],
-    pub(crate) lights: [Light; 4],
-    pub(crate) camera: Camera,
-}
-
-impl MyScene {
-    const fn camera(&self) -> &Camera {
-        &self.camera
-    }
-
-    const fn things(&self) -> &[Thing] {
-        &self.things
-    }
-
-    const fn lights(&self) -> &[Light] {
-        &self.lights
-    }
+#[const_trait]
+pub(crate) trait Scene {
+    fn things(&self) -> &[Thing];
+    fn lights(&self) -> &[Light];
+    fn camera(&self) -> &Camera;
 }
 
 const MAX_DEPTH: i32 = 5;
 
 impl RayTracer {
-    const fn intersections<'scene>(
+    const fn intersections<'scene, S: [const] Scene + 'scene>(
         &self,
         ray: &Ray,
-        scene: &'scene MyScene,
+        scene: &'scene S,
     ) -> Option<Intersection<'scene>> {
         let mut closest_dist = Real::MAX;
         let mut closest_inter = None;
@@ -509,7 +496,7 @@ impl RayTracer {
         closest_inter
     }
 
-    const fn test_ray(&self, ray: &Ray, scene: &MyScene) -> Option<Real> {
+    const fn test_ray<S: [const] Scene>(&self, ray: &Ray, scene: &S) -> Option<Real> {
         if let Some(isect) = self.intersections(ray, scene) {
             Some(isect.dist)
         } else {
@@ -517,7 +504,7 @@ impl RayTracer {
         }
     }
 
-    const fn trace_ray(&self, ray: &Ray, scene: &MyScene, depth: i32) -> Color {
+    const fn trace_ray<S: [const] Scene>(&self, ray: &Ray, scene: &S, depth: i32) -> Color {
         if let Some(ref isect) = self.intersections(ray, scene) {
             self.shade(isect, scene, depth)
         } else {
@@ -525,7 +512,7 @@ impl RayTracer {
         }
     }
 
-    const fn shade(&self, isect: &Intersection, scene: &MyScene, depth: i32) -> Color {
+    const fn shade<S: [const] Scene>(&self, isect: &Intersection, scene: &S, depth: i32) -> Color {
         let d = isect.ray.dir;
         let pos = (isect.dist.mul(d)) + isect.ray.start;
         let normal = isect.thing.normal(&pos);
@@ -540,12 +527,12 @@ impl RayTracer {
         natural_color + reflected_color
     }
 
-    const fn reflection_color(
+    const fn reflection_color<S: [const] Scene>(
         &self,
         thing: &Thing,
         pos: &Vec3,
         rd: &Vec3,
-        scene: &MyScene,
+        scene: &S,
         depth: i32,
     ) -> Color {
         scale(
@@ -554,13 +541,13 @@ impl RayTracer {
         )
     }
 
-    const fn add_light(
+    const fn add_light<S: [const] Scene>(
         &self,
         thing: &Thing,
         pos: &Vec3,
         normal: &Vec3,
         rd: &Vec3,
-        scene: &MyScene,
+        scene: &S,
         col: &Color,
         light: &Light,
     ) -> Color {
@@ -593,13 +580,13 @@ impl RayTracer {
         *col + (surf.diffuse(pos).mul(lcolor) + surf.specular(pos).mul(scolor))
     }
 
-    const fn natural_color(
+    const fn natural_color<S: [const] Scene>(
         &self,
         thing: &Thing,
         pos: &Vec3,
         norm: &Vec3,
         rd: &Vec3,
-        scene: &MyScene,
+        scene: &S,
     ) -> Color {
         let mut col = Color::default_color();
 
@@ -623,9 +610,9 @@ impl RayTracer {
         norm(cam.forward + ((recenter_x.mul(cam.right)) + (recenter_y.mul(cam.up))))
     }
 
-    pub(crate) const fn render(
+    pub(crate) const fn render<S: [const] Scene>(
         &self,
-        scene: &MyScene,
+        scene: &S,
         canvas: &mut StaticCanvas,
         width: i32,
         height: i32,

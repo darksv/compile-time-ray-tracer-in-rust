@@ -2,11 +2,12 @@
 #![feature(const_ops)]
 #![allow(long_running_const_eval)]
 
-use crate::ray_tracer::{
-    Camera, Color, Light, MyScene, MySurface, RayTracer, StaticCanvas, Thing, Vec3,
-};
+use crate::{ray_tracer::{
+    Camera, Color, Light, MySurface, RayTracer, StaticCanvas, Thing, Vec3,
+}, scene::MyScene};
 
 mod ray_tracer;
+mod scene;
 
 const WIDTH: usize = 512;
 const HEIGHT: usize = 512;
