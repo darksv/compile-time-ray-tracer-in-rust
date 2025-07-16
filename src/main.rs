@@ -3,9 +3,10 @@
 #![allow(long_running_const_eval)]
 
 use crate::{ray_tracer::{
-    Camera, Color, Light, MySurface, RayTracer, StaticCanvas, Thing, Vec3,
-}, scene::MyScene};
+    Camera, Color, Light, MySurface, RayTracer, Thing, Vec3,
+}, canvas::StaticCanvas, scene::MyScene};
 
+mod canvas;
 mod ray_tracer;
 mod scene;
 

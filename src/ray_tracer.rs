@@ -1,5 +1,3 @@
-use crate::{HEIGHT, WIDTH};
-
 type Real = f32;
 
 const fn sqrt(val: Real) -> Real {
@@ -610,10 +608,10 @@ impl RayTracer {
         norm(cam.forward + ((recenter_x.mul(cam.right)) + (recenter_y.mul(cam.up))))
     }
 
-    pub(crate) const fn render<S: [const] Scene>(
+    pub(crate) const fn render<S: [const] Scene, C: [const] Canvas>(
         &self,
         scene: &S,
-        canvas: &mut StaticCanvas,
+        canvas: &mut C,
         width: i32,
         height: i32,
     ) {
@@ -632,24 +630,7 @@ impl RayTracer {
     }
 }
 
-pub(crate) struct StaticCanvas {
-    buffer: [u8; WIDTH * HEIGHT * 3],
-}
-
-impl StaticCanvas {
-    pub(crate) const fn new() -> Self {
-        Self {
-            buffer: [0; { WIDTH * HEIGHT * 3 }],
-        }
-    }
-
-    pub(crate) const fn into_array(self) -> [u8; WIDTH * HEIGHT * 3] {
-        self.buffer
-    }
-
-    const fn set_pixel(&mut self, x: usize, y: usize, c: Color) {
-        self.buffer[(y * WIDTH + x) * 3 + 0] = (c.r.clamp(0.0, 1.0) * 255.0) as u8;
-        self.buffer[(y * WIDTH + x) * 3 + 1] = (c.g.clamp(0.0, 1.0) * 255.0) as u8;
-        self.buffer[(y * WIDTH + x) * 3 + 2] = (c.b.clamp(0.0, 1.0) * 255.0) as u8;
-    }
+#[const_trait]
+pub(crate) trait Canvas {
+    fn set_pixel(&mut self, x: usize, y: usize, c: Color);
 }
