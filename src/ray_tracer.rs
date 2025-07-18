@@ -40,7 +40,7 @@ impl Vec3 {
 }
 
 const fn norm(v: Vec3) -> Vec3 {
-    (1.0 / mag(v)).mul(v)
+    (1.0 / mag(v)) * v
 }
 
 impl const core::ops::Add<Vec3> for Vec3 {
@@ -55,15 +55,7 @@ impl const core::ops::Add<Vec3> for Vec3 {
     }
 }
 
-#[const_trait]
-trait ConstSub<Rhs = Self> {
-    type Output;
-
-    #[must_use = "this returns the result of the operation, without modifying the original"]
-    fn sub(self, rhs: Rhs) -> Self::Output;
-}
-
-impl const ConstSub<Vec3> for Vec3 {
+impl const core::ops::Sub<Vec3> for Vec3 {
     type Output = Vec3;
 
     fn sub(self, rhs: Vec3) -> Self::Output {
@@ -75,15 +67,7 @@ impl const ConstSub<Vec3> for Vec3 {
     }
 }
 
-#[const_trait]
-trait ConstMul<Rhs = Self> {
-    type Output;
-
-    #[must_use = "this returns the result of the operation, without modifying the original"]
-    fn mul(self, rhs: Rhs) -> Self::Output;
-}
-
-impl const ConstMul<Vec3> for Real {
+impl const core::ops::Mul<Vec3> for Real {
     type Output = Vec3;
 
     fn mul(self, rhs: Vec3) -> Self::Output {
@@ -136,7 +120,7 @@ impl const core::ops::Add<Color> for Color {
     }
 }
 
-impl const ConstMul<Color> for Color {
+impl const core::ops::Mul<Color> for Color {
     type Output = Color;
 
     fn mul(self, rhs: Color) -> Self::Output {
@@ -195,16 +179,16 @@ pub(crate) struct Camera {
 
 impl Camera {
     pub(crate) const fn new(pos: Vec3, look_at: Vec3) -> Self {
-        let forward = norm(look_at.sub(pos));
-        let right = 1.5.mul(norm(cross(
+        let forward = norm(look_at - pos);
+        let right = 1.5 * norm(cross(
             forward,
             Vec3 {
                 x: 0.0,
                 y: -1.0,
                 z: 0.0,
             },
-        )));
-        let up = 1.5.mul(norm(cross(forward, right)));
+        ));
+        let up = 1.5 * norm(cross(forward, right));
         Camera {
             pos,
             forward,
@@ -262,7 +246,7 @@ pub(crate) struct Sphere {
 
 impl const Hitable for Sphere {
     fn intersect<'obj>(&'obj self, ray: &Ray, thing: &'obj Thing) -> Option<Intersection<'obj>> {
-        let eo = self.centre.sub(ray.start);
+        let eo = self.centre - ray.start;
         let v = dot(eo, ray.dir);
         let mut dist = 0.0;
 
@@ -285,7 +269,7 @@ impl const Hitable for Sphere {
     }
 
     fn normal(&self, pos: &Vec3) -> Vec3 {
-        norm((*pos).sub(self.centre))
+        norm(*pos - self.centre)
     }
 
     fn surface(&self) -> &MySurface {
@@ -512,9 +496,9 @@ impl RayTracer {
 
     const fn shade<S: [const] Scene>(&self, isect: &Intersection, scene: &S, depth: i32) -> Color {
         let d = isect.ray.dir;
-        let pos = (isect.dist.mul(d)) + isect.ray.start;
+        let pos = (isect.dist * d) + isect.ray.start;
         let normal = isect.thing.normal(&pos);
-        let reflect_dir = d.sub(2.0.mul(dot(normal, d).mul(normal)));
+        let reflect_dir = d - 2.0 * dot(normal, d) * normal;
         let natural_color = Color::background()
             + self.natural_color(isect.thing, &pos, &normal, &reflect_dir, scene);
         let reflected_color = if depth >= MAX_DEPTH {
@@ -549,7 +533,7 @@ impl RayTracer {
         col: &Color,
         light: &Light,
     ) -> Color {
-        let ldis = light.pos.sub(*pos);
+        let ldis = light.pos - *pos;
         let livec = norm(ldis);
         let near_isect = self.test_ray(&Ray::new(*pos, livec), scene);
         let is_in_shadow = if let Some(near_isect) = near_isect {
@@ -575,7 +559,7 @@ impl RayTracer {
             Color::default_color()
         };
 
-        *col + (surf.diffuse(pos).mul(lcolor) + surf.specular(pos).mul(scolor))
+        *col + (surf.diffuse(pos) * lcolor + surf.specular(pos) * scolor)
     }
 
     const fn natural_color<S: [const] Scene>(
@@ -605,7 +589,7 @@ impl RayTracer {
         let height = height as Real;
         let recenter_x = (x - (width / 2.0)) / 2.0 / width;
         let recenter_y = -(y - (height / 2.0)) / 2.0 / height;
-        norm(cam.forward + ((recenter_x.mul(cam.right)) + (recenter_y.mul(cam.up))))
+        norm(cam.forward + ((recenter_x * cam.right) + (recenter_y * cam.up)))
     }
 
     pub(crate) const fn render<S: [const] Scene, C: [const] Canvas>(
